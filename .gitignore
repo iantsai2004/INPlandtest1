@@ -1,4 +1,4 @@
-# .gitignore 檔案
+# .gitignore
 .env
 secrets/
 node_modules/

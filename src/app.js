@@ -6,6 +6,7 @@ const line = require('@line/bot-sdk'); // 導入整個 line-bot-sdk 套件
 const admin = require('firebase-admin'); // 如果您使用 Firebase
 //const { OpenAI } = require('openai'); // 如果您使用 OpenAI
 const { initOpenAI, sendChatPrompt } = require('./services/openaiService');
+const { getState, setState } = require('./services/conversationState');
 const {
     buildGoalBreakdownPrompt,
     buildMicroTaskPrompt,
@@ -105,37 +106,93 @@ async function handleEvent(event) {
         return Promise.resolve(null);
     }
 
-    const userMessage = event.message.text;
+    //const userMessage = event.message.text;
+    const userMessage = event.message.text.trim();
     const replyToken = event.replyToken;
-    console.log(`User message: "${userMessage}" from userId: ${event.source.userId}`);
+    //console.log(`User message: "${userMessage}" from userId: ${event.source.userId}`);
+    const userId = event.source.userId;
+    console.log(`User message: "${userMessage}" from userId: ${userId}`);
 
-    let replyText = '很抱歉，您的請求處理時發生了預期外錯誤。'; // 預設一個明確的錯誤回覆
+    const state = getState(userId);
+
+    const prefixRegex = /^inpland/i;
+    const trimmed = userMessage.trim();
+
+    if (!prefixRegex.test(trimmed)) {
+        const reminder = '請以 INPland 開頭來啟動對話。';
+        console.log('Message without INPland prefix received.');
+        return client.replyMessage(replyToken, {
+            type: 'text',
+            text: reminder
+        });
+    }
+
+    const messageBody = trimmed.replace(prefixRegex, '').trim();
+
+    let replyText = '很抱歉，您的請求處理時發生了預期外錯誤。/n麻煩您重新輸入！ 預設一個明確的錯誤回覆
+
+    // 簡易對話狀態機：先詢問目標，再詢問可投入時間，最後產生任務建議
+    if (!state.phase) {
+        setState(userId, { phase: 'awaiting_goal' });
+        replyText = '歡迎使用 INPland Goal Map！請告訴我你想完成的目標或專案。';
+        return client.replyMessage(replyToken, { type: 'text', text: replyText });
+    }
+
+    if (state.phase === 'awaiting_goal') {
+        state.goal = userMessage;
+        state.phase = 'awaiting_time';
+        setState(userId, state);
+        replyText = '好的，您每週大概可以花多少時間在這件事上呢？';
+        return client.replyMessage(replyToken, { type: 'text', text: replyText });
+    }
+
+    if (state.phase === 'awaiting_time') {
+        state.time = userMessage;
+        state.phase = 'ready';
+        setState(userId, state);
+        if (openaiEnabled) {
+            const { system, user } = buildGoalBreakdownPrompt(`${state.goal} (每週時間:${state.time})`);
+            replyText = await sendChatPrompt(system, user);
+        } else {
+            replyText = `目標：${state.goal}\n每週時間：${state.time}`;
+        }
+        replyText += '\n如果需要進一步拆解任務或調整，隨時告訴我！';
+        return client.replyMessage(replyToken, { type: 'text', text: replyText });
+    }
 
     try {
         // --- 在這裡加入您的 OpenAI 和 Firebase 邏輯 ---
         // 範例：簡單的 OpenAI 互動
-        //if (openai && userMessage.includes('問AI')) {
-        if (openaiEnabled && userMessage.startsWith('目標拆解')) {
-            const input = userMessage.replace('目標拆解', '').trim();
+        //if (openaiEnabled && userMessage.startsWith('目標拆解')) {
+        // const input = userMessage.replace('目標拆解', '').trim();
+        if (openaiEnabled && messageBody.startsWith('目標拆解')) {
+            const input = messageBody.replace('目標拆解', '').trim();
             const { system, user } = buildGoalBreakdownPrompt(input);
             replyText = await sendChatPrompt(system, user);
-        } else if (openaiEnabled && userMessage.startsWith('碎片任務')) {
-            const task = userMessage.replace('碎片任務', '').trim();
+        //} else if (openaiEnabled && userMessage.startsWith('碎片任務')) {
+        //    const task = userMessage.replace('碎片任務', '').trim();
+        } else if (openaiEnabled && messageBody.startsWith('碎片任務')) {
+            const task = messageBody.replace('碎片任務', '').trim();
             const { system, user } = buildMicroTaskPrompt(task);
             replyText = await sendChatPrompt(system, user);
-        } else if (openaiEnabled && userMessage.startsWith('情緒調整')) {
-            const input = userMessage.replace('情緒調整', '').trim();
-            const [taskName = '', feedback = ''] = input.split('|').map(s => s.trim());
+        //} else if (openaiEnabled && userMessage.startsWith('情緒調整')) {
+            //const input = userMessage.replace('情緒調整', '').trim();
+        } else if (openaiEnabled && messageBody.startsWith('情緒調整')) {
+            const input = messageBody.replace('情緒調整', '').trim();    const [taskName = '', feedback = ''] = input.split('|').map(s => s.trim());
             const { system, user } = buildEmotionAdjustPrompt(feedback, taskName);
             replyText = await sendChatPrompt(system, user);
-        } else if (openaiEnabled && userMessage.startsWith('成果輸出')) {
-            const input = userMessage.replace('成果輸出', '').trim();
+        //} else if (openaiEnabled && userMessage.startsWith('成果輸出')) {
+           // const input = userMessage.replace('成果輸出', '').trim();
+        } else if (openaiEnabled && messageBody.startsWith('成果輸出')) {
+            const input = messageBody.replace('成果輸出', '').trim();
             const parts = input.split('|').map(s => s.trim());
             const [title = '', summary = '', challenge = '', next = ''] = parts;
             const { system, user } = buildOutputSummaryPrompt(title, summary, challenge, next);
             replyText = await sendChatPrompt(system, user);
-        } else if (openaiEnabled && userMessage.includes('問AI')) {
-            const prompt = userMessage.replace('問AI', '').trim();
+        //} else if (openaiEnabled && userMessage.includes('問AI')) {
+          //  const prompt = userMessage.replace('問AI', '').trim();
+        } else if (openaiEnabled && messageBody.includes('問AI')) {
+            const prompt = messageBody.replace('問AI', '').trim();
             if (prompt) {
                 console.log('Attempting to send prompt to OpenAI:', prompt);
                 //const chatCompletion = await openai.chat.completions.create({
@@ -151,13 +208,15 @@ async function handleEvent(event) {
             }
         }
         // 範例：讀取或寫入 Firebase (如果初始化成功)
-        else if (firebaseApp && userMessage.includes('寫入資料')) {
+        //else if (firebaseApp && userMessage.includes('寫入資料')) {
+        else if (firebaseApp && messageBody.includes('寫入資料')) {
             try {
                 console.log('Attempting to write message to Firebase.');
                 const db = admin.firestore(); // 使用 admin.firestore() 而不是 firebaseApp.firestore()
                 await db.collection('messages').add({
                     userId: event.source.userId,
-                    message: userMessage,
+                    //message: userMessage,
+                    message: messageBody,
                     timestamp: admin.firestore.FieldValue.serverTimestamp()
                 });
                 replyText = '您的訊息已儲存到 Firebase。';
@@ -170,7 +229,7 @@ async function handleEvent(event) {
         // --- 結束 OpenAI 和 Firebase 邏輯 ---
         else {
             // 如果沒有觸發特定邏輯，則使用預設回覆或簡單的回聲
-            replyText = `您說了：「${userMessage}」。`;
+            replyText = `您說了：「${messageBody}」。`;
             console.log('No specific logic triggered. Echoing message.');
         }
 
