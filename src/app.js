@@ -1,28 +1,28 @@
-// src/app.js
+ï»¿// src/app.js
 
-// ¤Ş¤J©Ò»İªº¼Ò²Õ
+// å¼•å…¥æ‰€éœ€çš„æ¨¡çµ„
 const express = require('express');
-const line = require('@line/bot-sdk'); // ¾É¤J¾ã­Ó line-bot-sdk ®M¥ó
-const admin = require('firebase-admin'); // ¦pªG±z¨Ï¥Î Firebase
-const { OpenAI } = require('openai'); // ¦pªG±z¨Ï¥Î OpenAI
+const line = require('@line/bot-sdk'); // å°å…¥æ•´å€‹ line-bot-sdk å¥—ä»¶
+const admin = require('firebase-admin'); // å¦‚æœæ‚¨ä½¿ç”¨ Firebase
+const { OpenAI } = require('openai'); // å¦‚æœæ‚¨ä½¿ç”¨ OpenAI
 
-// --- Àô¹ÒÅÜ¼Æ³]©w ---
-// ½T«O³o¨ÇÅÜ¼Æ¤w¸g¦b Render ªºÀô¹ÒÅÜ¼Æ¤¤³]©w
+// --- ç’°å¢ƒè®Šæ•¸è¨­å®š ---
+// ç¢ºä¿é€™äº›è®Šæ•¸å·²ç¶“åœ¨ Render çš„ç’°å¢ƒè®Šæ•¸ä¸­è¨­å®š
 const config = {
     channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
     channelSecret: process.env.LINE_CHANNEL_SECRET,
 };
 
-// ¦pªG LINE Channel Access Token ©Î Channel Secret ¥¼³]©w¡AÀ³¥Îµ{¦¡±NµLªk¹B¦æ
+// å¦‚æœ LINE Channel Access Token æˆ– Channel Secret æœªè¨­å®šï¼Œæ‡‰ç”¨ç¨‹å¼å°‡ç„¡æ³•é‹è¡Œ
 if (!config.channelAccessToken || !config.channelSecret) {
     console.error('ERROR: LINE_CHANNEL_ACCESS_TOKEN or LINE_CHANNEL_SECRET is not set.');
-    // ³o¸Ì¥i¥H¿ï¾Ü°h¥XÀ³¥Îµ{¦¡¡A©Î¥u¬O°O¿ı¿ù»~
+    // é€™è£¡å¯ä»¥é¸æ“‡é€€å‡ºæ‡‰ç”¨ç¨‹å¼ï¼Œæˆ–åªæ˜¯è¨˜éŒ„éŒ¯èª¤
     // process.exit(1);
 }
 
-// ¦pªG±z¨Ï¥Î Firebase Admin SDK
-// ³o¸Ì°²³]±zªº Firebase ªA°È±b¤á¾ÌÃÒ¬O¤@­Ó JSON ¦r¦ê¦s¦bÀô¹ÒÅÜ¼Æ¤¤
-// ½Ğ°È¥²±N±zªº Firebase JSON ¾ÌÃÒ¤º®e½Æ»s¶K¨ì Render ªºÀô¹ÒÅÜ¼Æ¸Ì¡AÅÜ¼Æ¦WºÙ¬° FIREBASE_SERVICE_ACCOUNT_KEY
+// å¦‚æœæ‚¨ä½¿ç”¨ Firebase Admin SDK
+// é€™è£¡å‡è¨­æ‚¨çš„ Firebase æœå‹™å¸³æˆ¶æ†‘è­‰æ˜¯ä¸€å€‹ JSON å­—ä¸²å­˜åœ¨ç’°å¢ƒè®Šæ•¸ä¸­
+// è«‹å‹™å¿…å°‡æ‚¨çš„ Firebase JSON æ†‘è­‰å…§å®¹è¤‡è£½è²¼åˆ° Render çš„ç’°å¢ƒè®Šæ•¸è£¡ï¼Œè®Šæ•¸åç¨±ç‚º FIREBASE_SERVICE_ACCOUNT_KEY
 let firebaseApp;
 if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
     try {
@@ -34,13 +34,13 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
     } catch (error) {
         console.error('ERROR: Failed to parse Firebase Service Account Key. Firebase features will not work.');
         console.error('FIREBASE_SERVICE_ACCOUNT_KEY content (first 50 chars):', String(process.env.FIREBASE_SERVICE_ACCOUNT_KEY).substring(0, 50) + '...');
-        firebaseApp = undefined; // ½T«O¦pªG¸ÑªR¥¢±Ñ¡AfirebaseApp ¬O undefined
+        firebaseApp = undefined; // ç¢ºä¿å¦‚æœè§£æå¤±æ•—ï¼ŒfirebaseApp æ˜¯ undefined
     }
 } else {
     console.warn('WARNING: FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set. Firebase features might not work.');
 }
 
-// ¦pªG±z¨Ï¥Î OpenAI
+// å¦‚æœæ‚¨ä½¿ç”¨ OpenAI
 let openai;
 if (process.env.OPENAI_API_KEY) {
     openai = new OpenAI({
@@ -52,27 +52,27 @@ if (process.env.OPENAI_API_KEY) {
 }
 
 
-// --- Express À³¥Îµ{¦¡³]©w ---
+// --- Express æ‡‰ç”¨ç¨‹å¼è¨­å®š ---
 const app = express();
 
 // Explicitly set up Express to parse JSON and URL-encoded bodies with UTF-8
-// ³o½T«O¶Ç¤J½Ğ¨Dªº½s½X¥¿½T³B²z
+// é€™ç¢ºä¿å‚³å…¥è«‹æ±‚çš„ç·¨ç¢¼æ­£ç¢ºè™•ç†
 //app.use(express.json({
- //   limit: '5mb', // ­­¨î½Ğ¨DÅé¤j¤p¡A®Ú¾Ú±zªº»İ¨D½Õ¾ã
+ //   limit: '5mb', // é™åˆ¶è«‹æ±‚é«”å¤§å°ï¼Œæ ¹æ“šæ‚¨çš„éœ€æ±‚èª¿æ•´
 //    type: ['application/json', 'application/x-www-form-urlencoded']
 //}));
 //app.use(express.urlencoded({ extended: true }));
 
-const client = new line.Client(config); // ¨Ï¥Î line.Client ¨Ó³Ğ«Ø LINE Bot «È¤áºİ
+const client = new line.Client(config); // ä½¿ç”¨ line.Client ä¾†å‰µå»º LINE Bot å®¢æˆ¶ç«¯
 
-// LINE Webhook ÅçÃÒ¤¤¶¡¥ó
-// ª`·N¡G³o¸Ì¨Ï¥Î line.middleware(config) ¨Ó³B²zÃ±¦WÅçÃÒ©M JSON ¸ÑªR
+// LINE Webhook é©—è­‰ä¸­é–“ä»¶
+// æ³¨æ„ï¼šé€™è£¡ä½¿ç”¨ line.middleware(config) ä¾†è™•ç†ç°½åé©—è­‰å’Œ JSON è§£æ
 app.post('/webhook', line.middleware(config), async (req, res) => {
     console.log('--- LINE Webhook Event Received ---');
-    console.log('Request Headers:', req.headers); // °O¿ı½Ğ¨DÀY¡A¦³§U©ó°»¿ù
-    console.log('Request Body:', JSON.stringify(req.body, null, 2)); // °O¿ı½Ğ¨DÅé
+    console.log('Request Headers:', req.headers); // è¨˜éŒ„è«‹æ±‚é ­ï¼Œæœ‰åŠ©æ–¼åµéŒ¯
+    console.log('Request Body:', JSON.stringify(req.body, null, 2)); // è¨˜éŒ„è«‹æ±‚é«”
 
-    // ³B²z¨C­Ó¶Ç¤Jªº¨Æ¥ó
+    // è™•ç†æ¯å€‹å‚³å…¥çš„äº‹ä»¶
     Promise
         .all(req.body.events.map(handleEvent))
         .then((result) => {
@@ -81,17 +81,17 @@ app.post('/webhook', line.middleware(config), async (req, res) => {
         })
         .catch((err) => {
             console.error('CRITICAL ERROR: Failed to process LINE webhook events. Responding with 500.', err);
-            // ³B²z¿ù»~¡G¦^À³ 500 Internal Server Error
+            // è™•ç†éŒ¯èª¤ï¼šå›æ‡‰ 500 Internal Server Error
             res.status(500).end();
         });
 });
 
-// --- ¨Æ¥ó³B²z¨ç¦¡ ---
+// --- äº‹ä»¶è™•ç†å‡½å¼ ---
 async function handleEvent(event) {
     console.log(`Processing event: ${event.type}`);
 
     if (event.type !== 'message' || event.message.type !== 'text') {
-        // ¦pªG¤£¬O¤å¦r°T®§¡Aª½±µ¦^¶Ç
+        // å¦‚æœä¸æ˜¯æ–‡å­—è¨Šæ¯ï¼Œç›´æ¥å›å‚³
         console.log(`Skipping non-text message or non-message event: ${event.type}`);
         return Promise.resolve(null);
     }
@@ -100,79 +100,79 @@ async function handleEvent(event) {
     const replyToken = event.replyToken;
     console.log(`User message: "${userMessage}" from userId: ${event.source.userId}`);
 
-    let replyText = '«Ü©êºp¡A±zªº½Ğ¨D³B²z®Éµo¥Í¤F¹w´Á¥~¿ù»~¡C'; // ¹w³]¤@­Ó©ú½Tªº¿ù»~¦^ÂĞ
+    let replyText = 'å¾ˆæŠ±æ­‰ï¼Œæ‚¨çš„è«‹æ±‚è™•ç†æ™‚ç™¼ç”Ÿäº†é æœŸå¤–éŒ¯èª¤ã€‚'; // é è¨­ä¸€å€‹æ˜ç¢ºçš„éŒ¯èª¤å›è¦†
 
     try {
-        // --- ¦b³o¸Ì¥[¤J±zªº OpenAI ©M Firebase ÅŞ¿è ---
-        // ½d¨Ò¡GÂ²³æªº OpenAI ¤¬°Ê
-        if (openai && userMessage.includes('°İAI')) {
-            const prompt = userMessage.replace('°İAI', '').trim();
+        // --- åœ¨é€™è£¡åŠ å…¥æ‚¨çš„ OpenAI å’Œ Firebase é‚è¼¯ ---
+        // ç¯„ä¾‹ï¼šç°¡å–®çš„ OpenAI äº’å‹•
+        if (openai && userMessage.includes('å•AI')) {
+            const prompt = userMessage.replace('å•AI', '').trim();
             if (prompt) {
                 console.log('Attempting to send prompt to OpenAI:', prompt);
                 const chatCompletion = await openai.chat.completions.create({
-                    model: "gpt-3.5-turbo", // ©ÎªÌ±z¿ï¾Üªº¨ä¥L¼Ò«¬¡A¦p "gpt-4"
+                    model: "gpt-3.5-turbo", // æˆ–è€…æ‚¨é¸æ“‡çš„å…¶ä»–æ¨¡å‹ï¼Œå¦‚ "gpt-4"
                     messages: [{ role: "user", content: prompt }],
                 });
                 replyText = chatCompletion.choices[0].message.content;
                 console.log('OpenAI response received:', replyText);
             } else {
-                replyText = '½Ğ°İ±z·Q°İ AI ¤°»ò©O¡H';
+                replyText = 'è«‹å•æ‚¨æƒ³å• AI ä»€éº¼å‘¢ï¼Ÿ';
                 console.log('OpenAI prompt empty. Responding with default.');
             }
         }
-        // ½d¨Ò¡GÅª¨ú©Î¼g¤J Firebase (¦pªGªì©l¤Æ¦¨¥\)
-        else if (firebaseApp && userMessage.includes('¼g¤J¸ê®Æ')) {
+        // ç¯„ä¾‹ï¼šè®€å–æˆ–å¯«å…¥ Firebase (å¦‚æœåˆå§‹åŒ–æˆåŠŸ)
+        else if (firebaseApp && userMessage.includes('å¯«å…¥è³‡æ–™')) {
             try {
                 console.log('Attempting to write message to Firebase.');
-                const db = admin.firestore(); // ¨Ï¥Î admin.firestore() ¦Ó¤£¬O firebaseApp.firestore()
+                const db = admin.firestore(); // ä½¿ç”¨ admin.firestore() è€Œä¸æ˜¯ firebaseApp.firestore()
                 await db.collection('messages').add({
                     userId: event.source.userId,
                     message: userMessage,
                     timestamp: admin.firestore.FieldValue.serverTimestamp()
                 });
-                replyText = '±zªº°T®§¤wÀx¦s¨ì Firebase¡C';
+                replyText = 'æ‚¨çš„è¨Šæ¯å·²å„²å­˜åˆ° Firebaseã€‚';
                 console.log('Message successfully written to Firebase.');
             } catch (fbError) {
                 console.error('ERROR: Failed to write to Firebase:', fbError);
-                replyText = 'Àx¦s¨ì Firebase ¥¢±Ñ¡A½ĞÀË¬d¾ÌÃÒ©Îºô¸ô¡C';
+                replyText = 'å„²å­˜åˆ° Firebase å¤±æ•—ï¼Œè«‹æª¢æŸ¥æ†‘è­‰æˆ–ç¶²è·¯ã€‚';
             }
         }
-        // --- µ²§ô OpenAI ©M Firebase ÅŞ¿è ---
+        // --- çµæŸ OpenAI å’Œ Firebase é‚è¼¯ ---
         else {
-            // ¦pªG¨S¦³Ä²µo¯S©wÅŞ¿è¡A«h¨Ï¥Î¹w³]¦^ÂĞ©ÎÂ²³æªº¦^Án
-            replyText = `±z»¡¤F¡G¡u${userMessage}¡v¡C`;
+            // å¦‚æœæ²’æœ‰è§¸ç™¼ç‰¹å®šé‚è¼¯ï¼Œå‰‡ä½¿ç”¨é è¨­å›è¦†æˆ–ç°¡å–®çš„å›è²
+            replyText = `æ‚¨èªªäº†ï¼šã€Œ${userMessage}ã€ã€‚`;
             console.log('No specific logic triggered. Echoing message.');
         }
 
     } catch (error) {
         console.error('ERROR: Uncaught error in handleEvent custom logic (OpenAI/Firebase):', error);
-        replyText = '³B²z±zªº½Ğ¨D®Éµo¥Í¿ù»~¡A½Ğµy«á¦A¸Õ¡C';
+        replyText = 'è™•ç†æ‚¨çš„è«‹æ±‚æ™‚ç™¼ç”ŸéŒ¯èª¤ï¼Œè«‹ç¨å¾Œå†è©¦ã€‚';
     }
 
     console.log('Attempting to reply with text:', replyText);
-    // ¦^ÂĞ°T®§µ¹¥Î¤á
-    // ½T«O¦^ÂĞ¤º®e¬O¦r¦êÃş«¬
+    // å›è¦†è¨Šæ¯çµ¦ç”¨æˆ¶
+    // ç¢ºä¿å›è¦†å…§å®¹æ˜¯å­—ä¸²é¡å‹
     return client.replyMessage(replyToken, {
         type: 'text',
-        text: String(replyText) // ½T«O replyText ¬O¦r¦ê
+        text: String(replyText) // ç¢ºä¿ replyText æ˜¯å­—ä¸²
     });
 }
 
-// --- ´ú¸Õ¸ô¥Ñ ---
-// ³o­Ó¸ô¥Ñ¥Î©óÀË¬dªA°È¬O§_¹B¦æ
+// --- æ¸¬è©¦è·¯ç”± ---
+// é€™å€‹è·¯ç”±ç”¨æ–¼æª¢æŸ¥æœå‹™æ˜¯å¦é‹è¡Œ
 app.get('/', (req, res) => {
     console.log('GET / route hit - Testing basic server function.');
     res.status(200).send('LINE Bot server is running for testing. Webhook configured at /webhook.');
 });
 
-// --- À³¥Îµ{¦¡ºÊÅ¥°ğ ---
-// Render ·|³z¹LÀô¹ÒÅÜ¼Æ PORT §i¶D§Ú­ÌÀ³¸ÓºÊÅ¥­ş­Óºİ¤f
-const port = process.env.PORT || 3000; // ¦pªGÀô¹ÒÅÜ¼Æ¨S¦³³]©w¡A«h¹w³]¬° 3000
+// --- æ‡‰ç”¨ç¨‹å¼ç›£è½åŸ  ---
+// Render æœƒé€éç’°å¢ƒè®Šæ•¸ PORT å‘Šè¨´æˆ‘å€‘æ‡‰è©²ç›£è½å“ªå€‹ç«¯å£
+const port = process.env.PORT || 3000; // å¦‚æœç’°å¢ƒè®Šæ•¸æ²’æœ‰è¨­å®šï¼Œå‰‡é è¨­ç‚º 3000
 
-// ±Ò°Ê Express ¦øªA¾¹¡AºÊÅ¥«ü©wºİ¤f
+// å•Ÿå‹• Express ä¼ºæœå™¨ï¼Œç›£è½æŒ‡å®šç«¯å£
 app.listen(port, () => {
     console.log(`LINE Bot server listening on port ${port}`);
 });
 
-// ±N Express À³¥Îµ{¦¡¾É¥X
+// å°‡ Express æ‡‰ç”¨ç¨‹å¼å°å‡º
 module.exports = app;
