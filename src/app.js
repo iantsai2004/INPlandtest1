@@ -129,7 +129,7 @@ async function handleEvent(event) {
 
     const messageBody = trimmed.replace(prefixRegex, '').trim();
 
-    let replyText = '很抱歉，您的請求處理時發生了預期外錯誤。/n麻煩您重新輸入！ 預設一個明確的錯誤回覆
+    let replyText = '很抱歉，您的請求處理時發生了預期外錯誤。\n 用INPland開頭讓我們幫你打造你的Goal Map！';
 
     // 簡易對話狀態機：先詢問目標，再詢問可投入時間，最後產生任務建議
     if (!state.phase) {
