@@ -46,6 +46,16 @@ if (process.env.OPENAI_API_KEY) {
 
 // --- Express 應用程式設定 ---
 const app = express();
+
+// Explicitly set up Express to parse JSON and URL-encoded bodies
+// This ensures incoming request bodies are handled correctly with UTF-8 encoding.
+// 明確設定 Express 來解析 JSON 和 URL 編碼的請求體，確保傳入請求的編碼正確處理
+app.use(express.json({
+    limit: '5mb', // 限制請求體大小，根據您的需求調整
+    type: ['application/json', 'application/x-www-form-urlencoded']
+}));
+app.use(express.urlencoded({ extended: true }));
+
 const client = new line.Client(config); // 使用 line.Client 來創建 LINE Bot 客戶端
 
 // LINE Webhook 驗證中間件
