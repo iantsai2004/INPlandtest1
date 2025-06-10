@@ -2,12 +2,12 @@
 
 // 引入所需的模組
 const express = require('express');
-const line = require('@line/bot-sdk'); // <--- 修改這裡：直接引入整個 line-bot-sdk 套件
+const line = require('@line/bot-sdk'); // 導入整個 line-bot-sdk 套件
 const admin = require('firebase-admin'); // 如果您使用 Firebase
 const { OpenAI } = require('openai'); // 如果您使用 OpenAI
 
 // --- 環境變數設定 ---
-// 確保這些變數已經在 Vercel 的環境變數中設定
+// 確保這些變數已經在 Render 的環境變數中設定
 const config = {
     channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
     channelSecret: process.env.LINE_CHANNEL_SECRET,
@@ -15,7 +15,7 @@ const config = {
 
 // 如果您使用 Firebase Admin SDK
 // 這裡假設您的 Firebase 服務帳戶憑證是一個 JSON 字串存在環境變數中
-// 請務必將您的 Firebase JSON 憑證內容複製貼到 Vercel 的環境變數裡，變數名稱為 FIREBASE_SERVICE_ACCOUNT_KEY
+// 請務必將您的 Firebase JSON 憑證內容複製貼到 Render 的環境變數裡，變數名稱為 FIREBASE_SERVICE_ACCOUNT_KEY
 let firebaseApp;
 if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
     try {
@@ -46,14 +46,11 @@ if (process.env.OPENAI_API_KEY) {
 
 // --- Express 應用程式設定 ---
 const app = express();
-// <--- 修改這裡：使用 line.Client 或 line.WebhookClient
-// 由於之前的錯誤訊息，line.Client 是一個更穩妥的選擇，尤其是在舊版 SDK 或不同導入語法下
-const client = new line.Client(config);
+const client = new line.Client(config); // 使用 line.Client 來創建 LINE Bot 客戶端
 
 // LINE Webhook 驗證中間件
-// 注意：這裡使用 client.middleware(config) 來處理簽名驗證和 JSON 解析
-// 對於 line.Client， middleware 方法的參數可能略有不同，但通常也是 config
-app.post('/webhook', line.middleware(config), async (req, res) => { // <--- 修改這裡：直接使用 line.middleware
+// 注意：這裡使用 line.middleware(config) 來處理簽名驗證和 JSON 解析
+app.post('/webhook', line.middleware(config), async (req, res) => {
     console.log('--- LINE Webhook Event Received ---');
     console.log('Request Headers:', req.headers); // 記錄請求頭，有助於偵錯
     console.log('Request Body:', JSON.stringify(req.body, null, 2)); // 記錄請求體
@@ -130,13 +127,20 @@ async function handleEvent(event) {
 }
 
 // --- 測試路由 ---
-// 這個路由用於 Vercel 部署後的快速檢查
+// 這個路由用於檢查服務是否運行
 app.get('/', (req, res) => {
     console.log('GET / route hit - Testing basic server function.');
     res.status(200).send('LINE Bot server is running for testing. Webhook configured at /webhook.');
 });
 
 // --- 應用程式監聽埠 ---
-// 在 Vercel 環境中，不需要手動設定埠號，Vercel 會自動處理。
-// 這裡的 module.exports = app; 是 Vercel 函數的關鍵。
+// Render 會透過環境變數 PORT 告訴我們應該監聽哪個端口
+const port = process.env.PORT || 3000; // 如果環境變數沒有設定，則預設為 3000
+
+// 啟動 Express 伺服器，監聽指定端口
+app.listen(port, () => {
+    console.log(`LINE Bot server listening on port ${port}`);
+});
+
+// 將 Express 應用程式導出
 module.exports = app;
