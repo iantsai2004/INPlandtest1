@@ -6,7 +6,8 @@ const line = require('@line/bot-sdk'); // 導入整個 line-bot-sdk 套件
 const admin = require('firebase-admin'); // 如果您使用 Firebase
 //const { OpenAI } = require('openai'); // 如果您使用 OpenAI
 const { initOpenAI, sendChatPrompt } = require('./services/openaiService');
-const { getState, setState } = require('./services/conversationState');
+//const { getState, setState } = require('./services/conversationState');
+const { getState, setState, clearState } = require('./services/conversationState');
 const {
     buildGoalBreakdownPrompt,
     buildMicroTaskPrompt,
@@ -113,45 +114,65 @@ async function handleEvent(event) {
     const userId = event.source.userId;
     console.log(`User message: "${userMessage}" from userId: ${userId}`);
 
-    const state = getState(userId);
+    //const state = getState(userId);
+    let state = getState(userId) || {};
 
     const prefixRegex = /^inpland/i;
     const trimmed = userMessage.trim();
 
-    if (!prefixRegex.test(trimmed)) {
-        const reminder = '請以 INPland 開頭來啟動對話。';
-        console.log('Message without INPland prefix received.');
-        return client.replyMessage(replyToken, {
-            type: 'text',
-            text: reminder
-        });
+    //if (!prefixRegex.test(trimmed)) {
+    //    const reminder = '請以 INPland 開頭來啟動對話。';
+    //    console.log('Message without INPland prefix received.');
+    //    return client.replyMessage(replyToken, {
+    //        type: 'text',
+    //        text: reminder
+    //    });
+    //}
+    if (prefixRegex.test(trimmed)) {
+        // 使用 INPland 開頭代表重新啟動對話
+        clearState(userId);
+        state = { phase: 'awaiting_goal' };
+        setState(userId, state);
+        const intro = '嗨！每次以 INPland 開頭我就會重新為你建立新的 Goal Map。' +
+            '\n請先告訴我你想達成的學習或專案目標，不用一次說完，慢慢來。';
+        return client.replyMessage(replyToken, { type: 'text', text: intro });
     }
 
-    const messageBody = trimmed.replace(prefixRegex, '').trim();
+    //const messageBody = trimmed.replace(prefixRegex, '').trim();
+    const messageBody = trimmed;
+
+    if (!state || !state.phase) {
+        const reminder = '請以 INPland 開頭開始新的對話。';
+        console.log('Message received without active session.');
+        return client.replyMessage(replyToken, { type: 'text', text: reminder });
+    }
 
     let replyText = '很抱歉，您的請求處理時發生了預期外錯誤。\n 用INPland開頭讓我們幫你打造你的Goal Map！';
 
-    // 簡易對話狀態機：先詢問目標，再詢問可投入時間，最後產生任務建議
-    if (!state.phase) {
-        setState(userId, { phase: 'awaiting_goal' });
-        replyText = '歡迎使用 INPland Goal Map！請告訴我你想完成的目標或專案。';
+    // 簡易對話狀態機：依序詢問目標、其他待辦與可投入時間
+        if (state.phase === 'awaiting_goal') {
+        state.goal = messageBody;
+        state.phase = 'awaiting_obligations';
+        setState(userId, state);
+        replyText = '了解了！除此之外，你還有哪些工作或生活上的事情需要同時處理？';
         return client.replyMessage(replyToken, { type: 'text', text: replyText });
     }
-
-    if (state.phase === 'awaiting_goal') {
-        state.goal = userMessage;
+    //if (state.phase === 'awaiting_goal') {
+    //  state.goal = userMessage;
+    if (state.phase === 'awaiting_obligations') {
+        state.obligations = messageBody;
         state.phase = 'awaiting_time';
         setState(userId, state);
-        replyText = '好的，您每週大概可以花多少時間在這件事上呢？';
+        replyText = '謝謝分享！大約每週能投入多少時間在這個目標上呢？';
         return client.replyMessage(replyToken, { type: 'text', text: replyText });
     }
 
     if (state.phase === 'awaiting_time') {
-        state.time = userMessage;
+        state.time = messageBody;
         state.phase = 'ready';
         setState(userId, state);
         if (openaiEnabled) {
-            const { system, user } = buildGoalBreakdownPrompt(`${state.goal} (每週時間:${state.time})`);
+            const { system, user } = buildGoalBreakdownPrompt(state.goal, state.time, state.obligations);
             replyText = await sendChatPrompt(system, user);
         } else {
             replyText = `目標：${state.goal}\n每週時間：${state.time}`;
@@ -167,7 +188,7 @@ async function handleEvent(event) {
         // const input = userMessage.replace('目標拆解', '').trim();
         if (openaiEnabled && messageBody.startsWith('目標拆解')) {
             const input = messageBody.replace('目標拆解', '').trim();
-            const { system, user } = buildGoalBreakdownPrompt(input);
+            const { system, user } = buildGoalBreakdownPrompt(input, '', '');
             replyText = await sendChatPrompt(system, user);
         //} else if (openaiEnabled && userMessage.startsWith('碎片任務')) {
         //    const task = userMessage.replace('碎片任務', '').trim();
