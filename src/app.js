@@ -57,11 +57,11 @@ const app = express();
 
 // Explicitly set up Express to parse JSON and URL-encoded bodies with UTF-8
 // 這確保傳入請求的編碼正確處理
-app.use(express.json({
-    limit: '5mb', // 限制請求體大小，根據您的需求調整
-    type: ['application/json', 'application/x-www-form-urlencoded']
-}));
-app.use(express.urlencoded({ extended: true }));
+//app.use(express.json({
+ //   limit: '5mb', // 限制請求體大小，根據您的需求調整
+//    type: ['application/json', 'application/x-www-form-urlencoded']
+//}));
+//app.use(express.urlencoded({ extended: true }));
 
 const client = new line.Client(config); // 使用 line.Client 來創建 LINE Bot 客戶端
 
