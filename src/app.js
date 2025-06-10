@@ -2,7 +2,7 @@
 
 // 引入所需的模組
 const express = require('express');
-const { WebhookClient } = require('@line/bot-sdk'); // 這是新的 SDK 導入方式
+const line = require('@line/bot-sdk'); // <--- 修改這裡：直接引入整個 line-bot-sdk 套件
 const admin = require('firebase-admin'); // 如果您使用 Firebase
 const { OpenAI } = require('openai'); // 如果您使用 OpenAI
 
@@ -46,11 +46,14 @@ if (process.env.OPENAI_API_KEY) {
 
 // --- Express 應用程式設定 ---
 const app = express();
-const client = new WebhookClient(config); // 使用 WebhookClient 而不是 Client
+// <--- 修改這裡：使用 line.Client 或 line.WebhookClient
+// 由於之前的錯誤訊息，line.Client 是一個更穩妥的選擇，尤其是在舊版 SDK 或不同導入語法下
+const client = new line.Client(config);
 
 // LINE Webhook 驗證中間件
 // 注意：這裡使用 client.middleware(config) 來處理簽名驗證和 JSON 解析
-app.post('/webhook', client.middleware(config), async (req, res) => {
+// 對於 line.Client， middleware 方法的參數可能略有不同，但通常也是 config
+app.post('/webhook', line.middleware(config), async (req, res) => { // <--- 修改這裡：直接使用 line.middleware
     console.log('--- LINE Webhook Event Received ---');
     console.log('Request Headers:', req.headers); // 記錄請求頭，有助於偵錯
     console.log('Request Body:', JSON.stringify(req.body, null, 2)); // 記錄請求體
