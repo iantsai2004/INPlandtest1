@@ -110,7 +110,7 @@ async function handleEvent(event) {
             if (prompt) {
                 console.log('Attempting to send prompt to OpenAI:', prompt);
                 const chatCompletion = await openai.chat.completions.create({
-                    model: "gpt-o4-mini", // 或者您選擇的其他模型，如 "gpt-4"
+                    model: "o4-mini", // 或者您選擇的其他模型，如 "gpt-4"
                     messages: [{ role: "user", content: prompt }],
                 });
                 replyText = chatCompletion.choices[0].message.content;
