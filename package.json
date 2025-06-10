@@ -1,0 +1,21 @@
+{
+  "name": "inpland-ai-bot",
+  "version": "1.0.0",
+  "description": "INPland.ai LINE BOT MVP - Goal Map Project",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js"
+  },
+  "dependencies": {
+    "@line/bot-sdk": "^7.x.x",
+    "@vercel/analytics": "^1.5.0",
+    "axios": "^1.x.x",
+    "dotenv": "^16.x.x",
+    "express": "^4.x.x",
+    "firebase-admin": "^11.x.x"
+  },
+  "devDependencies": {
+    "nodemon": "^3.x.x"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "src/app.js": {
+      "runtime": "nodejs22.x" 
+    }
+  },
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/src/app.js"
+    }
+  ]
+}
