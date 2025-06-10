@@ -4,7 +4,14 @@
 const express = require('express');
 const line = require('@line/bot-sdk'); // 導入整個 line-bot-sdk 套件
 const admin = require('firebase-admin'); // 如果您使用 Firebase
-const { OpenAI } = require('openai'); // 如果您使用 OpenAI
+//const { OpenAI } = require('openai'); // 如果您使用 OpenAI
+const { initOpenAI, sendChatPrompt } = require('./services/openaiService');
+const {
+    buildGoalBreakdownPrompt,
+    buildMicroTaskPrompt,
+    buildEmotionAdjustPrompt,
+    buildOutputSummaryPrompt,
+} = require('./services/prompts');
 
 // --- 環境變數設定 ---
 // 確保這些變數已經在 Render 的環境變數中設定
@@ -41,16 +48,18 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
 }
 
 // 如果您使用 OpenAI
-let openai;
-if (process.env.OPENAI_API_KEY) {
-    openai = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY,
-    });
-    console.log('OpenAI initialized successfully.');
-} else {
-    console.warn('WARNING: OPENAI_API_KEY environment variable is not set. OpenAI features might not work.');
-}
-
+//    let openai;
+//    if (process.env.OPENAI_API_KEY) {
+//        openai = new OpenAI({
+//            apiKey: process.env.OPENAI_API_KEY,
+//        });
+//        console.log('OpenAI initialized successfully.');
+//    } else {
+//        console.warn('WARNING: OPENAI_API_KEY environment variable is not set. OpenAI features might not work.');
+//    }
+// 初始化 OpenAI
+initOpenAI(process.env.OPENAI_API_KEY);
+const openaiEnabled = !!process.env.OPENAI_API_KEY;
 
 // --- Express 應用程式設定 ---
 const app = express();
@@ -105,15 +114,36 @@ async function handleEvent(event) {
     try {
         // --- 在這裡加入您的 OpenAI 和 Firebase 邏輯 ---
         // 範例：簡單的 OpenAI 互動
-        if (openai && userMessage.includes('問AI')) {
+        //if (openai && userMessage.includes('問AI')) {
+        if (openaiEnabled && userMessage.startsWith('目標拆解')) {
+            const input = userMessage.replace('目標拆解', '').trim();
+            const { system, user } = buildGoalBreakdownPrompt(input);
+            replyText = await sendChatPrompt(system, user);
+        } else if (openaiEnabled && userMessage.startsWith('碎片任務')) {
+            const task = userMessage.replace('碎片任務', '').trim();
+            const { system, user } = buildMicroTaskPrompt(task);
+            replyText = await sendChatPrompt(system, user);
+        } else if (openaiEnabled && userMessage.startsWith('情緒調整')) {
+            const input = userMessage.replace('情緒調整', '').trim();
+            const [taskName = '', feedback = ''] = input.split('|').map(s => s.trim());
+            const { system, user } = buildEmotionAdjustPrompt(feedback, taskName);
+            replyText = await sendChatPrompt(system, user);
+        } else if (openaiEnabled && userMessage.startsWith('成果輸出')) {
+            const input = userMessage.replace('成果輸出', '').trim();
+            const parts = input.split('|').map(s => s.trim());
+            const [title = '', summary = '', challenge = '', next = ''] = parts;
+            const { system, user } = buildOutputSummaryPrompt(title, summary, challenge, next);
+            replyText = await sendChatPrompt(system, user);
+        } else if (openaiEnabled && userMessage.includes('問AI')) {
             const prompt = userMessage.replace('問AI', '').trim();
             if (prompt) {
                 console.log('Attempting to send prompt to OpenAI:', prompt);
-                const chatCompletion = await openai.chat.completions.create({
-                    model: "o4-mini", // 或者您選擇的其他模型，如 "gpt-4"
-                    messages: [{ role: "user", content: prompt }],
-                });
-                replyText = chatCompletion.choices[0].message.content;
+                //const chatCompletion = await openai.chat.completions.create({
+                //    model: "o4-mini", // 或者您選擇的其他模型，如 "gpt-4"
+                //    messages: [{ role: "user", content: prompt }],
+                //});
+                //replyText = chatCompletion.choices[0].message.content;
+                replyText = await sendChatPrompt('', prompt);
                 console.log('OpenAI response received:', replyText);
             } else {
                 replyText = '請問您想問 AI 什麼呢？';
