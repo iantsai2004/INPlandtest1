@@ -49,30 +49,12 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
     console.warn('WARNING: FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set. Firebase features might not work.');
 }
 
-// 如果您使用 OpenAI
-//    let openai;
-//    if (process.env.OPENAI_API_KEY) {
-//        openai = new OpenAI({
-//            apiKey: process.env.OPENAI_API_KEY,
-//        });
-//        console.log('OpenAI initialized successfully.');
-//    } else {
-//        console.warn('WARNING: OPENAI_API_KEY environment variable is not set. OpenAI features might not work.');
-//    }
 // 初始化 OpenAI
 initOpenAI(process.env.OPENAI_API_KEY);
 const openaiEnabled = !!process.env.OPENAI_API_KEY;
 
 // --- Express 應用程式設定 ---
 const app = express();
-
-// Explicitly set up Express to parse JSON and URL-encoded bodies with UTF-8
-// 這確保傳入請求的編碼正確處理
-//app.use(express.json({
- //   limit: '5mb', // 限制請求體大小，根據您的需求調整
-//    type: ['application/json', 'application/x-www-form-urlencoded']
-//}));
-//app.use(express.urlencoded({ extended: true }));
 
 const client = new line.Client(config); // 使用 line.Client 來創建 LINE Bot 客戶端
 
@@ -120,14 +102,17 @@ async function handleEvent(event) {
     const prefixRegex = /^inpland/i;
     const trimmed = userMessage.trim();
 
-    //if (!prefixRegex.test(trimmed)) {
-    //    const reminder = '請以 INPland 開頭來啟動對話。';
-    //    console.log('Message without INPland prefix received.');
-    //    return client.replyMessage(replyToken, {
-    //        type: 'text',
-    //        text: reminder
-    //    });
-    //}
+    function detectCommand(msg) {
+        const m = msg.replace(/\s/g, '');
+        if (/拆解.*(目標|任務)|(目標|任務).*拆解/.test(m)) return 'goalBreakdown';
+        if (/碎片任務|微任務|分段任務/.test(m)) return 'microTask';
+        if (/情緒|心情|壓力|焦慮/.test(m)) return 'emotionAdjust';
+        if (/成果|輸出|摘要|紀錄/.test(m)) return 'outputSummary';
+        if (/問.*AI|AI.*問/.test(m)) return 'askAI';
+        if (/寫入資料|儲存|存檔/.test(m)) return 'writeData';
+        return null;
+    }
+
     if (prefixRegex.test(trimmed)) {
         // 使用 INPland 開頭代表重新啟動對話
         clearState(userId);
@@ -138,13 +123,15 @@ async function handleEvent(event) {
         return client.replyMessage(replyToken, { type: 'text', text: intro });
     }
 
-    //const messageBody = trimmed.replace(prefixRegex, '').trim();
     const messageBody = trimmed;
 
     if (!state || !state.phase) {
-        const reminder = '請以 INPland 開頭開始新的對話。';
-        console.log('Message received without active session.');
-        return client.replyMessage(replyToken, { type: 'text', text: reminder });
+        // 自動啟動新對話
+        state = { phase: 'awaiting_goal' };
+        setState(userId, state);
+        const intro = '嗨！請告訴我你想達成的學習或專案目標，不用一次說完，慢慢來。';
+        console.log('New session automatically started.');
+        return client.replyMessage(replyToken, { type: 'text', text: intro });
     }
 
     let replyText = '很抱歉，您的請求處理時發生了預期外錯誤。\n 用INPland開頭讓我們幫你打造你的Goal Map！';
@@ -183,44 +170,31 @@ async function handleEvent(event) {
 
     try {
         // --- 在這裡加入您的 OpenAI 和 Firebase 邏輯 ---
-        // 範例：簡單的 OpenAI 互動
-        //if (openaiEnabled && userMessage.startsWith('目標拆解')) {
-        // const input = userMessage.replace('目標拆解', '').trim();
-        if (openaiEnabled && messageBody.startsWith('目標拆解')) {
-            const input = messageBody.replace('目標拆解', '').trim();
-            const { system, user } = buildGoalBreakdownPrompt(input, '', '');
+        const command = detectCommand(messageBody);
+
+        if (openaiEnabled && command === 'goalBreakdown') {
+            const input = messageBody.replace(/(目標|任務)?\s*拆解/, '').trim();
+            const { system, user } = buildGoalBreakdownPrompt(input || state.goal || '', state.time || '', state.obligations || '');
             replyText = await sendChatPrompt(system, user);
-        //} else if (openaiEnabled && userMessage.startsWith('碎片任務')) {
-        //    const task = userMessage.replace('碎片任務', '').trim();
-        } else if (openaiEnabled && messageBody.startsWith('碎片任務')) {
-            const task = messageBody.replace('碎片任務', '').trim();
+        } else if (openaiEnabled && command === 'microTask') {
+            const task = messageBody.replace(/碎片任務|微任務|分段任務/, '').trim();
             const { system, user } = buildMicroTaskPrompt(task);
             replyText = await sendChatPrompt(system, user);
-        //} else if (openaiEnabled && userMessage.startsWith('情緒調整')) {
-            //const input = userMessage.replace('情緒調整', '').trim();
-        } else if (openaiEnabled && messageBody.startsWith('情緒調整')) {
-            const input = messageBody.replace('情緒調整', '').trim();    const [taskName = '', feedback = ''] = input.split('|').map(s => s.trim());
+        } else if (openaiEnabled && command === 'emotionAdjust') {
+            const input = messageBody.replace(/情緒調整|情緒|心情|壓力|焦慮/, '').trim();
+            const [taskName = '', feedback = ''] = input.split('|').map(s => s.trim());
             const { system, user } = buildEmotionAdjustPrompt(feedback, taskName);
             replyText = await sendChatPrompt(system, user);
-        //} else if (openaiEnabled && userMessage.startsWith('成果輸出')) {
-           // const input = userMessage.replace('成果輸出', '').trim();
-        } else if (openaiEnabled && messageBody.startsWith('成果輸出')) {
-            const input = messageBody.replace('成果輸出', '').trim();
+        } else if (openaiEnabled && command === 'outputSummary') {
+            const input = messageBody.replace(/成果輸出|成果|輸出|摘要|紀錄/, '').trim();
             const parts = input.split('|').map(s => s.trim());
             const [title = '', summary = '', challenge = '', next = ''] = parts;
             const { system, user } = buildOutputSummaryPrompt(title, summary, challenge, next);
             replyText = await sendChatPrompt(system, user);
-        //} else if (openaiEnabled && userMessage.includes('問AI')) {
-          //  const prompt = userMessage.replace('問AI', '').trim();
-        } else if (openaiEnabled && messageBody.includes('問AI')) {
-            const prompt = messageBody.replace('問AI', '').trim();
+        } else if (openaiEnabled && command === 'askAI') {
+            const prompt = messageBody.replace(/問.?AI/, '').trim();
             if (prompt) {
                 console.log('Attempting to send prompt to OpenAI:', prompt);
-                //const chatCompletion = await openai.chat.completions.create({
-                //    model: "o4-mini", // 或者您選擇的其他模型，如 "gpt-4"
-                //    messages: [{ role: "user", content: prompt }],
-                //});
-                //replyText = chatCompletion.choices[0].message.content;
                 replyText = await sendChatPrompt('', prompt);
                 console.log('OpenAI response received:', replyText);
             } else {
@@ -228,9 +202,7 @@ async function handleEvent(event) {
                 console.log('OpenAI prompt empty. Responding with default.');
             }
         }
-        // 範例：讀取或寫入 Firebase (如果初始化成功)
-        //else if (firebaseApp && userMessage.includes('寫入資料')) {
-        else if (firebaseApp && messageBody.includes('寫入資料')) {
+        else if (firebaseApp && command === 'writeData') {
             try {
                 console.log('Attempting to write message to Firebase.');
                 const db = admin.firestore(); // 使用 admin.firestore() 而不是 firebaseApp.firestore()

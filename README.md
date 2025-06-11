@@ -4,6 +4,8 @@ A simple LINE bot experiment for building goal maps.
 
 ## How to chat
 
-* Start a new conversation by sending `INPland` as the first word. This clears the previous goal map and begins a fresh one.
-* After starting, continue chatting normally without the prefix. The bot will guide you through providing your goal, other tasks you must handle, and the weekly time you can dedicate.
-* You may send `INPland` again at any time to create another goal map.
+Simply send a message to start a session. The bot will ask about your goal, any
+other tasks you must handle, and how much time you can dedicate. Mention things
+like *拆解* or *情緒* naturally in the conversation and the relevant features will
+trigger automatically. If you ever want to reset the planning flow you can still
+send `INPland`, but it is no longer required.
