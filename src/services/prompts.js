@@ -48,6 +48,12 @@ function buildMoodCheckPrompt() {
     return { system, user };
 }
 
+function buildGeneralChatPrompt(message) {
+    const system = '你是一位親切的學習助理，請根據使用者訊息給予自然回覆。';
+    const user = message;
+    return { system, user };
+}
+
 module.exports = {
     buildGoalBreakdownPrompt,
     buildMicroTaskPrompt,
@@ -57,4 +63,5 @@ module.exports = {
     buildObligationQuestionPrompt,
     buildTimeQuestionPrompt,
     buildMoodCheckPrompt,
+    buildGeneralChatPrompt,
 };

@@ -17,6 +17,7 @@ const {
     buildObligationQuestionPrompt,
     buildTimeQuestionPrompt,
     buildMoodCheckPrompt,
+    buildGeneralChatPrompt,
 } = require('./services/prompts');
 
 // --- 環境變數設定 ---
@@ -154,7 +155,16 @@ async function handleEvent(event) {
     let replyText = '很抱歉，您的請求處理時發生了預期外錯誤。\n 用INPland開頭讓我們幫你打造你的Goal Map！';
 
     // 簡易對話狀態機：依序詢問目標、其他待辦與可投入時間
-        if (state.phase === 'awaiting_goal') {
+    if (state.phase === 'awaiting_goal') {
+        if (!messageBody) {
+            if (openaiEnabled) {
+                const { system, user } = buildGoalQuestionPrompt();
+                replyText = await sendChatPrompt(system, user);
+            } else {
+                replyText = '請再次描述您的主要目標。';
+            }
+            return client.replyMessage(replyToken, { type: 'text', text: replyText });
+        }
         state.goal = messageBody;
         state.phase = 'awaiting_obligations';
         setState(userId, state);
@@ -169,6 +179,15 @@ async function handleEvent(event) {
     //if (state.phase === 'awaiting_goal') {
     //  state.goal = userMessage;
     if (state.phase === 'awaiting_obligations') {
+        if (!messageBody) {
+            if (openaiEnabled) {
+                const { system, user } = buildObligationQuestionPrompt();
+                replyText = await sendChatPrompt(system, user);
+            } else {
+                replyText = '請再告訴我需要兼顧哪些工作或生活任務。';
+            }
+            return client.replyMessage(replyToken, { type: 'text', text: replyText });
+        }
         state.obligations = messageBody;
         state.phase = 'awaiting_time';
         setState(userId, state);
@@ -182,6 +201,15 @@ async function handleEvent(event) {
     }
 
     if (state.phase === 'awaiting_time') {
+        if (!messageBody) {
+            if (openaiEnabled) {
+                const { system, user } = buildTimeQuestionPrompt();
+                replyText = await sendChatPrompt(system, user);
+            } else {
+                replyText = '請告訴我大約能投入的時間。';
+            }
+            return client.replyMessage(replyToken, { type: 'text', text: replyText });
+        }
         state.time = messageBody;
         state.phase = 'ready';
         setState(userId, state);
@@ -271,9 +299,13 @@ async function handleEvent(event) {
                 }
                 replyText += '\n如果需要進一步拆解任務或調整，隨時告訴我！';
             } else {
-                // 如果沒有觸發特定邏輯，則使用預設回覆或簡單的回聲
-                replyText = `您說了：「${messageBody}」。`;
-                console.log('No specific logic triggered. Echoing message.');
+                if (openaiEnabled) {
+                    const { system, user } = buildGeneralChatPrompt(messageBody);
+                    replyText = await sendChatPrompt(system, user);
+                } else {
+                    replyText = `您說了：「${messageBody}」。`;
+                }
+                console.log('No specific logic triggered.');
             }
         }
 
