@@ -221,9 +221,24 @@ async function handleEvent(event) {
         }
         // --- 結束 OpenAI 和 Firebase 邏輯 ---
         else {
-            // 如果沒有觸發特定邏輯，則使用預設回覆或簡單的回聲
-            replyText = `您說了：「${messageBody}」。`;
-            console.log('No specific logic triggered. Echoing message.');
+            if (state.phase === 'ready') {
+                // 把額外資訊存起來並重新生成建議
+                state.extra = state.extra || [];
+                state.extra.push(messageBody);
+                setState(userId, state);
+                if (openaiEnabled) {
+                    const more = `${state.obligations || ''}\n${state.extra.join('\n')}`;
+                    const { system, user } = buildGoalBreakdownPrompt(state.goal, state.time, more);
+                    replyText = await sendChatPrompt(system, user);
+                } else {
+                    replyText = `收到補充：「${messageBody}」。`;
+                }
+                replyText += '\n如果需要進一步拆解任務或調整，隨時告訴我！';
+            } else {
+                // 如果沒有觸發特定邏輯，則使用預設回覆或簡單的回聲
+                replyText = `您說了：「${messageBody}」。`;
+                console.log('No specific logic triggered. Echoing message.');
+            }
         }
 
     } catch (error) {
