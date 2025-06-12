@@ -13,6 +13,10 @@ const {
     buildMicroTaskPrompt,
     buildEmotionAdjustPrompt,
     buildOutputSummaryPrompt,
+    buildGoalQuestionPrompt,
+    buildObligationQuestionPrompt,
+    buildTimeQuestionPrompt,
+    buildMoodCheckPrompt,
 } = require('./services/prompts');
 
 // --- 環境變數設定 ---
@@ -52,6 +56,7 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
 // 初始化 OpenAI
 initOpenAI(process.env.OPENAI_API_KEY);
 const openaiEnabled = !!process.env.OPENAI_API_KEY;
+const COURSE_URL = process.env.COURSE_URL || 'https://example.com/course';
 
 // --- Express 應用程式設定 ---
 const app = express();
@@ -118,8 +123,14 @@ async function handleEvent(event) {
         clearState(userId);
         state = { phase: 'awaiting_goal' };
         setState(userId, state);
-        const intro = '嗨！每次以 INPland 開頭我就會重新為你建立新的 Goal Map。' +
-            '\n請先告訴我你想達成的學習或專案目標，不用一次說完，慢慢來。';
+        let intro;
+        if (openaiEnabled) {
+            const { system, user } = buildGoalQuestionPrompt();
+            const q = await sendChatPrompt(system, user);
+            intro = `嗨！每次以 INPland 開頭我就會重新為你建立新的 Goal Map。\n${q}`;
+        } else {
+            intro = '嗨！每次以 INPland 開頭我就會重新為你建立新的 Goal Map。\n請先告訴我你想達成的學習或專案目標，不用一次說完，慢慢來。';
+        }
         return client.replyMessage(replyToken, { type: 'text', text: intro });
     }
 
@@ -129,7 +140,13 @@ async function handleEvent(event) {
         // 自動啟動新對話
         state = { phase: 'awaiting_goal' };
         setState(userId, state);
-        const intro = '嗨！請告訴我你想達成的學習或專案目標，不用一次說完，慢慢來。';
+        let intro;
+        if (openaiEnabled) {
+            const { system, user } = buildGoalQuestionPrompt();
+            intro = await sendChatPrompt(system, user);
+        } else {
+            intro = '嗨！請分享你想達成的學習或專案目標吧。';
+        }
         console.log('New session automatically started.');
         return client.replyMessage(replyToken, { type: 'text', text: intro });
     }
@@ -141,7 +158,12 @@ async function handleEvent(event) {
         state.goal = messageBody;
         state.phase = 'awaiting_obligations';
         setState(userId, state);
-        replyText = '了解了！除此之外，你還有哪些工作或生活上的事情需要同時處理？';
+        if (openaiEnabled) {
+            const { system, user } = buildObligationQuestionPrompt();
+            replyText = await sendChatPrompt(system, user);
+        } else {
+            replyText = '了解了！除此之外，你還有哪些工作或生活上的事情需要同時處理？';
+        }
         return client.replyMessage(replyToken, { type: 'text', text: replyText });
     }
     //if (state.phase === 'awaiting_goal') {
@@ -150,7 +172,12 @@ async function handleEvent(event) {
         state.obligations = messageBody;
         state.phase = 'awaiting_time';
         setState(userId, state);
-        replyText = '謝謝分享！大約每週能投入多少時間在這個目標上呢？';
+        if (openaiEnabled) {
+            const { system, user } = buildTimeQuestionPrompt();
+            replyText = await sendChatPrompt(system, user);
+        } else {
+            replyText = '謝謝分享！大約每週能投入多少時間在這個目標上呢？';
+        }
         return client.replyMessage(replyToken, { type: 'text', text: replyText });
     }
 
@@ -158,13 +185,22 @@ async function handleEvent(event) {
         state.time = messageBody;
         state.phase = 'ready';
         setState(userId, state);
+        let breakdown = '';
+        let micro = '';
+        let mood = '';
         if (openaiEnabled) {
             const { system, user } = buildGoalBreakdownPrompt(state.goal, state.time, state.obligations);
-            replyText = await sendChatPrompt(system, user);
+            breakdown = await sendChatPrompt(system, user);
+            const m = buildMicroTaskPrompt(state.goal);
+            micro = await sendChatPrompt(m.system, m.user);
+            const emo = buildMoodCheckPrompt();
+            mood = await sendChatPrompt(emo.system, emo.user);
         } else {
-            replyText = `目標：${state.goal}\n每週時間：${state.time}`;
+            breakdown = `目標：${state.goal}\n每週時間：${state.time}`;
+            micro = '告訴我任務內容，我可以幫你拆解成微任務。';
+            mood = '目前心情如何？有沒有什麼壓力或迷惘？';
         }
-        replyText += '\n如果需要進一步拆解任務或調整，隨時告訴我！';
+        replyText = `${breakdown}\n\n${micro}\n\n${mood}\n\n課程平台：${COURSE_URL}\n完成後可輸入「成果輸出 標題|內容|挑戰|下一步」記錄成果。`;
         return client.replyMessage(replyToken, { type: 'text', text: replyText });
     }
 

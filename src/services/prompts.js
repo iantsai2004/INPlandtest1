@@ -24,9 +24,37 @@ function buildOutputSummaryPrompt(title, summary, challenge, next) {
     return { system, user };
 }
 
+function buildGoalQuestionPrompt() {
+    const system = `你是關懷的助理，想更了解使用者想解決的問題或願望，請以聊天方式提出問題，不要直接給格式或條列。`;
+    const user = '請以一句自然的提問來了解對方的主要目標';
+    return { system, user };
+}
+
+function buildObligationQuestionPrompt() {
+    const system = `你是線上學習助理，想知道使用者還需要兼顧哪些工作與生活任務，請用關懷語氣提出問題。`;
+    const user = '產生一句詢問使用者其他待辦事項的話';
+    return { system, user };
+}
+
+function buildTimeQuestionPrompt() {
+    const system = `你是貼心的助理，需要了解使用者能投入多少時間在目標上，請以自然對話方式詢問，不要強迫。`;
+    const user = '產生一句詢問可投入時間的問題';
+    return { system, user };
+}
+
+function buildMoodCheckPrompt() {
+    const system = `你是個能察覺情緒的助理，想關心使用者是否迷茫或焦慮，請用一句友善的提問了解他目前的心情。`;
+    const user = '請給我一句關心對方心情的問題';
+    return { system, user };
+}
+
 module.exports = {
     buildGoalBreakdownPrompt,
     buildMicroTaskPrompt,
     buildEmotionAdjustPrompt,
     buildOutputSummaryPrompt,
+    buildGoalQuestionPrompt,
+    buildObligationQuestionPrompt,
+    buildTimeQuestionPrompt,
+    buildMoodCheckPrompt,
 };
