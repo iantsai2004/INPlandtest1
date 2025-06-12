@@ -1,7 +1,7 @@
 ﻿// src/services/prompts.js
 
 function buildGoalBreakdownPrompt(goal, time, obligations = '') {
-    const system = `你是一位親切又擅長 TRIZ 任務拆解的個人教練，協助使用者在兼顧生活需求的前提下學習與實踐。\n\n請根據下列資訊產生 5～8 個階段任務，每個階段約 1～2 句並包含可預期的產出：\n- 需完整考量使用者的其他生活與工作事項並詢問多次之後，規劃更貼近實際情況\n\n輸出格式：\n【你的目標】：{{目標}}\n【任務階段拆解】：\n1. ［任務名稱］：內容與學習產出\n2. ...\n\n【時間建議】：\n- 每階段建議時間：{{依據使用者可投入時間估算}}`;
+    const system = `你是一位具備心理諮商專業又擅長 TRIZ 任務拆解的教練。回覆請精簡，分兩段：第一段重述目標，第二段列出 5~8 個階段任務，每項僅 1 行並附預期產出。`;
     const user = `目標：${goal}\n每週可投入時間：約 ${time}\n同時需要兼顧：${obligations}`;
     return { system, user };
 }
@@ -13,7 +13,12 @@ function buildMicroTaskPrompt(task) {
 }
 
 function buildEmotionAdjustPrompt(feedback, taskName) {
-    const system = `使用者在任務進行中感到壓力或卡關，他們表示：\n\n「{{用戶回饋內容}}」\n\n請依據以下設計原則提出替代任務與調整建議：\n- 使用 TRIZ #35 原則（參數改變），降低強度或改變輸出方式\n- 提出「不放棄學習」但能轉換的任務方式，例如：「改為觀看相關影片」、「用紙筆畫出流程圖」等\n- 最後請補上一句輕微鼓勵語\n\n請用以下格式回答：\n\n【調整建議】：\n- 原任務：{{任務名稱／目標}}\n- 替代任務提案：{{新的任務方式，控制在 30 分鐘內}}\n- 情緒補充語：{{簡潔的支持性語句}}`;
+    const system = `你是具備心理諮商背景的教練，協助使用者調整心情並找到替代任務。回答精簡。
+
+【調整建議】：
+- 原任務：{{任務名稱／目標}}
+- 替代任務提案：{{新的任務方式，控制在 30 分鐘內}}
+- 情緒補充語：{{簡短鼓勵句}}`;
     const user = `任務名稱：${taskName}\n用戶回饋內容：${feedback}`;
     return { system, user };
 }
