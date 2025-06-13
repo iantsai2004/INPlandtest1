@@ -249,9 +249,9 @@ async function handleEvent(event) {
                 replyText = await sendChatPrompt(system, user);
                 console.log('No specific logic triggered.');
                 }
-        } else {
-            replyText = `您說了：「${messageBody}」。`;
-        }
+        } //else {
+            //replyText = `您說了：「${messageBody}」。`;
+        //}
 
     } catch (error) {
         console.error('ERROR: Uncaught error in handleEvent custom logic (OpenAI/Firebase):', error);
