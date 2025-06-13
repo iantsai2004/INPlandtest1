@@ -33,7 +33,9 @@ async function classifyMessage(content) {
     if (!openaiInstance) {
         throw new Error('OpenAI is not initialized.');
     }
-    const systemPrompt = '請判斷使用者輸入主要屬於「目標」、「待辦」、「時間」或「其他」四種類別，僅回覆 GOAL、OBLIGATION、TIME 或 OTHER。';
+    const systemPrompt =
+        'You are a message classifier. '
+        + 'Respond with one word: GOAL, OBLIGATION, TIME, or OTHER.';
     const messages = [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: content }
@@ -42,7 +44,7 @@ async function classifyMessage(content) {
         model: MODEL,
         messages,
     });
-    return response.choices[0].message.content.trim();
+    return response.choices[0].message.content.trim().toUpperCase();
 }
 
 module.exports = {
