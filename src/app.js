@@ -196,15 +196,21 @@ async function handleEvent(event) {
             }
             return client.replyMessage(replyToken, { type: 'text', text: replyText });
         }
-        if (openaiEnabled) {
-            const type = (await classifyMessage(messageBody)).toUpperCase();
-            if (type !== 'OBLIGATION') {
-                const { system, user } = buildObligationQuestionPrompt();
-                replyText = await sendChatPrompt(system, user);
-                return client.replyMessage(replyToken, { type: 'text', text: replyText });
+        const noObligationRegex = /^(?:沒有|沒有了|沒了|無|沒有其他|none)$/i;
+        if (noObligationRegex.test(messageBody)) {
+            state.obligations = '無';
+        } else {
+            if (openaiEnabled) {
+                const type = (await classifyMessage(messageBody)).toUpperCase();
+                if (type !== 'OBLIGATION') {
+                    const { system, user } = buildObligationQuestionPrompt();
+                    replyText = await sendChatPrompt(system, user);
+                    return client.replyMessage(replyToken, { type: 'text', text: replyText });
+                }
             }
+            state.obligations = messageBody;
         }
-        state.obligations = messageBody;
+
         state.phase = 'awaiting_time';
         setState(userId, state);
         let confirm = `需同時處理的事項有「${state.obligations}」，如果我理解錯誤請說明。`;
