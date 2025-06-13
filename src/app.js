@@ -110,12 +110,6 @@ async function handleEvent(event) {
 
     function detectCommand(msg) {
         const m = msg.replace(/\s/g, '');
-        if (/拆解.*(目標|任務)|(目標|任務).*拆解/.test(m)) return 'goalBreakdown';
-        if (/碎片任務|微任務|分段任務/.test(m)) return 'microTask';
-        if (/情緒|心情|壓力|焦慮/.test(m)) return 'emotionAdjust';
-        if (/成果|輸出|摘要|紀錄/.test(m)) return 'outputSummary';
-        if (/問.*AI|AI.*問/.test(m)) return 'askAI';
-        if (/寫入資料|儲存|存檔/.test(m)) return 'writeData';
         return null;
     }
 
@@ -168,11 +162,13 @@ async function handleEvent(event) {
         state.goal = messageBody;
         state.phase = 'awaiting_obligations';
         setState(userId, state);
+        let confirm = `我理解的目標是「${state.goal}」，如果需要更正請告訴我。`;
         if (openaiEnabled) {
             const { system, user } = buildObligationQuestionPrompt();
-            replyText = await sendChatPrompt(system, user);
+            const question = await sendChatPrompt(system, user);
+            replyText = `${confirm}\n${question}`;
         } else {
-            replyText = '了解了！除此之外，你還有哪些工作或生活上的事情需要同時處理？';
+            replyText = `${confirm}\n除此之外，你還有哪些工作或生活上的事情需要同時處理？`;
         }
         return client.replyMessage(replyToken, { type: 'text', text: replyText });
     }
@@ -191,11 +187,13 @@ async function handleEvent(event) {
         state.obligations = messageBody;
         state.phase = 'awaiting_time';
         setState(userId, state);
+        let confirm = `需同時處理的事項有「${state.obligations}」，如果我理解錯誤請說明。`;
         if (openaiEnabled) {
             const { system, user } = buildTimeQuestionPrompt();
-            replyText = await sendChatPrompt(system, user);
+            const question = await sendChatPrompt(system, user);
+            replyText = `${confirm}\n${question}`;
         } else {
-            replyText = '謝謝分享！大約每週能投入多少時間在這個目標上呢？';
+            replyText = `${confirm}\n大約每週能投入多少時間在這個目標上呢？`;
         }
         return client.replyMessage(replyToken, { type: 'text', text: replyText });
     }
@@ -213,6 +211,7 @@ async function handleEvent(event) {
         state.time = messageBody;
         state.phase = 'ready';
         setState(userId, state);
+        let confirm = `預計投入時間為「${state.time}」，若需要調整請告訴我。`;
         let breakdown = '';
         let micro = '';
         let mood = '';
@@ -228,85 +227,30 @@ async function handleEvent(event) {
             micro = '告訴我任務內容，我可以幫你拆解成微任務。';
             mood = '目前心情如何？有沒有什麼壓力或迷惘？';
         }
-        replyText = `${breakdown}\n\n${micro}\n\n${mood}\n\n課程平台：${COURSE_URL}\n完成後可輸入「成果輸出 標題|內容|挑戰|下一步」記錄成果。`;
+        replyText = `${confirm}\n${breakdown}\n\n${micro}\n\n${mood}\n\n課程平台：${COURSE_URL}\n完成後可輸入「成果輸出 標題|內容|挑戰|下一步」記錄成果。`;
         return client.replyMessage(replyToken, { type: 'text', text: replyText });
     }
 
     try {
-        // --- 在這裡加入您的 OpenAI 和 Firebase 邏輯 ---
-        const command = detectCommand(messageBody);
-
-        if (openaiEnabled && command === 'goalBreakdown') {
-            const input = messageBody.replace(/(目標|任務)?\s*拆解/, '').trim();
-            const { system, user } = buildGoalBreakdownPrompt(input || state.goal || '', state.time || '', state.obligations || '');
-            replyText = await sendChatPrompt(system, user);
-        } else if (openaiEnabled && command === 'microTask') {
-            const task = messageBody.replace(/碎片任務|微任務|分段任務/, '').trim();
-            const { system, user } = buildMicroTaskPrompt(task);
-            replyText = await sendChatPrompt(system, user);
-        } else if (openaiEnabled && command === 'emotionAdjust') {
-            const input = messageBody.replace(/情緒調整|情緒|心情|壓力|焦慮/, '').trim();
-            const [taskName = '', feedback = ''] = input.split('|').map(s => s.trim());
-            const { system, user } = buildEmotionAdjustPrompt(feedback, taskName);
-            replyText = await sendChatPrompt(system, user);
-        } else if (openaiEnabled && command === 'outputSummary') {
-            const input = messageBody.replace(/成果輸出|成果|輸出|摘要|紀錄/, '').trim();
-            const parts = input.split('|').map(s => s.trim());
-            const [title = '', summary = '', challenge = '', next = ''] = parts;
-            const { system, user } = buildOutputSummaryPrompt(title, summary, challenge, next);
-            replyText = await sendChatPrompt(system, user);
-        } else if (openaiEnabled && command === 'askAI') {
-            const prompt = messageBody.replace(/問.?AI/, '').trim();
-            if (prompt) {
-                console.log('Attempting to send prompt to OpenAI:', prompt);
-                replyText = await sendChatPrompt('', prompt);
-                console.log('OpenAI response received:', replyText);
-            } else {
-                replyText = '請問您想問 AI 什麼呢？';
-                console.log('OpenAI prompt empty. Responding with default.');
-            }
-        }
-        else if (firebaseApp && command === 'writeData') {
-            try {
-                console.log('Attempting to write message to Firebase.');
-                const db = admin.firestore(); // 使用 admin.firestore() 而不是 firebaseApp.firestore()
-                await db.collection('messages').add({
-                    userId: event.source.userId,
-                    //message: userMessage,
-                    message: messageBody,
-                    timestamp: admin.firestore.FieldValue.serverTimestamp()
-                });
-                replyText = '您的訊息已儲存到 Firebase。';
-                console.log('Message successfully written to Firebase.');
-            } catch (fbError) {
-                console.error('ERROR: Failed to write to Firebase:', fbError);
-                replyText = '儲存到 Firebase 失敗，請檢查憑證或網路。';
-            }
-        }
-        // --- 結束 OpenAI 和 Firebase 邏輯 ---
+        // 直接交由 OpenAI 模型生成回覆，不再依賴關鍵字判斷
+        if (openaiEnabled) {
         else {
             if (state.phase === 'ready') {
                 // 把額外資訊存起來並重新生成建議
                 state.extra = state.extra || [];
                 state.extra.push(messageBody);
                 setState(userId, state);
-                if (openaiEnabled) {
-                    const more = `${state.obligations || ''}\n${state.extra.join('\n')}`;
-                    const { system, user } = buildGoalBreakdownPrompt(state.goal, state.time, more);
-                    replyText = await sendChatPrompt(system, user);
-                } else {
-                    replyText = `收到補充：「${messageBody}」。`;
-                }
-                replyText += '\n如果需要進一步拆解任務或調整，隨時告訴我！';
+                const more = `${state.obligations || ''}\n${state.extra.join('\n')}`;
+                const { system, user } = buildGoalBreakdownPrompt(state.goal, state.time, more);
+                replyText = await sendChatPrompt(system, user);
+                replyText += '\n如果需要進一步討論，隨時告訴我！';
             } else {
-                if (openaiEnabled) {
-                    const { system, user } = buildGeneralChatPrompt(messageBody);
-                    replyText = await sendChatPrompt(system, user);
-                } else {
-                    replyText = `您說了：「${messageBody}」。`;
-                }
+                const { system, user } = buildGeneralChatPrompt(messageBody);
+                replyText = await sendChatPrompt(system, user);
                 console.log('No specific logic triggered.');
-            }
+                }
+        } else {
+            replyText = `您說了：「${messageBody}」。`;
         }
 
     } catch (error) {
