@@ -234,7 +234,6 @@ async function handleEvent(event) {
     try {
         // 直接交由 OpenAI 模型生成回覆，不再依賴關鍵字判斷
         if (openaiEnabled) {
-        else {
             if (state.phase === 'ready') {
                 // 把額外資訊存起來並重新生成建議
                 state.extra = state.extra || [];
@@ -248,10 +247,10 @@ async function handleEvent(event) {
                 const { system, user } = buildGeneralChatPrompt(messageBody);
                 replyText = await sendChatPrompt(system, user);
                 console.log('No specific logic triggered.');
-                }
-        } //else {
-            //replyText = `您說了：「${messageBody}」。`;
-        //}
+            }
+        } else {
+            replyText = `您說了：「${messageBody}」。`;
+        }
 
     } catch (error) {
         console.error('ERROR: Uncaught error in handleEvent custom logic (OpenAI/Firebase):', error);
