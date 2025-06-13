@@ -5,7 +5,7 @@ const express = require('express');
 const line = require('@line/bot-sdk'); // 導入整個 line-bot-sdk 套件
 const admin = require('firebase-admin'); // 如果您使用 Firebase
 //const { OpenAI } = require('openai'); // 如果您使用 OpenAI
-const { initOpenAI, sendChatPrompt } = require('./services/openaiService');
+const { initOpenAI, sendChatPrompt, classifyMessage } = require('./services/openaiService');
 //const { getState, setState } = require('./services/conversationState');
 const { getState, setState, clearState } = require('./services/conversationState');
 const {
@@ -18,6 +18,7 @@ const {
     buildTimeQuestionPrompt,
     buildMoodCheckPrompt,
     buildGeneralChatPrompt,
+    buildConfirmationPrompt,
 } = require('./services/prompts');
 
 // --- 環境變數設定 ---
@@ -159,11 +160,22 @@ async function handleEvent(event) {
             }
             return client.replyMessage(replyToken, { type: 'text', text: replyText });
         }
+        if (openaiEnabled) {
+            const type = (await classifyMessage(messageBody)).toUpperCase();
+            if (type !== 'GOAL') {
+                const { system, user } = buildGoalQuestionPrompt();
+                replyText = await sendChatPrompt(system, user);
+                return client.replyMessage(replyToken, { type: 'text', text: replyText });
+            }
+        }
         state.goal = messageBody;
         state.phase = 'awaiting_obligations';
         setState(userId, state);
         let confirm = `我理解的目標是「${state.goal}」，如果需要更正請告訴我。`;
         if (openaiEnabled) {
+            const confirmPrompt = buildConfirmationPrompt(state.goal);
+            const ack = await sendChatPrompt(confirmPrompt.system, confirmPrompt.user);
+            confirm = ack;
             const { system, user } = buildObligationQuestionPrompt();
             const question = await sendChatPrompt(system, user);
             replyText = `${confirm}\n${question}`;
@@ -184,11 +196,22 @@ async function handleEvent(event) {
             }
             return client.replyMessage(replyToken, { type: 'text', text: replyText });
         }
+        if (openaiEnabled) {
+            const type = (await classifyMessage(messageBody)).toUpperCase();
+            if (type !== 'OBLIGATION') {
+                const { system, user } = buildObligationQuestionPrompt();
+                replyText = await sendChatPrompt(system, user);
+                return client.replyMessage(replyToken, { type: 'text', text: replyText });
+            }
+        }
         state.obligations = messageBody;
         state.phase = 'awaiting_time';
         setState(userId, state);
         let confirm = `需同時處理的事項有「${state.obligations}」，如果我理解錯誤請說明。`;
         if (openaiEnabled) {
+            const confirmPrompt = buildConfirmationPrompt(state.obligations);
+            const ack = await sendChatPrompt(confirmPrompt.system, confirmPrompt.user);
+            confirm = ack;
             const { system, user } = buildTimeQuestionPrompt();
             const question = await sendChatPrompt(system, user);
             replyText = `${confirm}\n${question}`;
@@ -208,6 +231,14 @@ async function handleEvent(event) {
             }
             return client.replyMessage(replyToken, { type: 'text', text: replyText });
         }
+        if (openaiEnabled) {
+            const type = (await classifyMessage(messageBody)).toUpperCase();
+            if (type !== 'TIME') {
+                const { system, user } = buildTimeQuestionPrompt();
+                replyText = await sendChatPrompt(system, user);
+                return client.replyMessage(replyToken, { type: 'text', text: replyText });
+            }
+        }
         state.time = messageBody;
         state.phase = 'ready';
         setState(userId, state);
@@ -216,6 +247,9 @@ async function handleEvent(event) {
         let micro = '';
         let mood = '';
         if (openaiEnabled) {
+            const confirmPrompt = buildConfirmationPrompt(state.time);
+            const ack = await sendChatPrompt(confirmPrompt.system, confirmPrompt.user);
+            confirm = ack;
             const { system, user } = buildGoalBreakdownPrompt(state.goal, state.time, state.obligations);
             breakdown = await sendChatPrompt(system, user);
             const m = buildMicroTaskPrompt(state.goal);

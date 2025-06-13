@@ -52,6 +52,12 @@ function buildGeneralChatPrompt(message) {
     const user = message;
     return { system, user };
 }
+function buildConfirmationPrompt(message) {
+    const system = '你是一位善於理解對話的助理，請用一句自然話語轉述並確認以下內容，避免直接重複。';
+    const user = message;
+    return { system, user };
+}
+
 
 module.exports = {
     buildGoalBreakdownPrompt,
@@ -63,4 +69,5 @@ module.exports = {
     buildTimeQuestionPrompt,
     buildMoodCheckPrompt,
     buildGeneralChatPrompt,
+    buildConfirmationPrompt,
 };
