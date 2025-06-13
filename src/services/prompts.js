@@ -1,5 +1,4 @@
 ﻿// src/services/prompts.js
-
 function buildGoalBreakdownPrompt(goal, time, obligations = '') {
     const system = `你是一位具備心理諮商專業又擅長 TRIZ 任務拆解的教練。請用自然聊天語氣確認目標，再簡短說明 5 到 8 個執行階段，不需使用條列或符號。`;
     const user = `目標：${goal}\n每週可投入時間：約 ${time}\n同時需要兼顧：${obligations}`;
@@ -45,3 +44,23 @@ function buildTimeQuestionPrompt() {
 function buildMoodCheckPrompt() {
     const system = `你是個能察覺情緒的助理，想關心使用者是否迷茫或焦慮，請用一句友善的提問了解他目前的心情。`;
     const user = '請給我一句關心對方心情的問題';
+    return { system, user };
+}
+
+function buildGeneralChatPrompt(message) {
+    const system = '你是一位親切的學習助理，請根據使用者訊息給予自然回覆。';
+    const user = message;
+    return { system, user };
+}
+
+module.exports = {
+    buildGoalBreakdownPrompt,
+    buildMicroTaskPrompt,
+    buildEmotionAdjustPrompt,
+    buildOutputSummaryPrompt,
+    buildGoalQuestionPrompt,
+    buildObligationQuestionPrompt,
+    buildTimeQuestionPrompt,
+    buildMoodCheckPrompt,
+    buildGeneralChatPrompt,
+};
