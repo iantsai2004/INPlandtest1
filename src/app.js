@@ -68,19 +68,46 @@ const client = new line.Client(config); // 使用 line.Client 來創建 LINE Bot
 
 // 將過長的訊息切割成多則，以避免單次傳送過多內容
 // LINE 的 replyMessage API 最多一次只能回覆 5 則訊息，每則訊息上限 5000 字
-// 將 chunk 大小調整為 4000 字，並確保最多只回覆 5 則訊息以免回覆失敗
+// 新增長度分類，並在每則訊息前標示編號與分類
+function classifyLength(len) {
+    if (len <= 100) return '短';
+    if (len <= 1000) return '中';
+    return '長';
+}
 function chunkText(text, size = 4000, maxMessages = 5) {
-    const messages = [];
+    const chunks = [];
     let remaining = String(text);
-    while (remaining.length > size && messages.length < maxMessages - 1) {
+    while (remaining.length > size && chunks.length < maxMessages - 1) {
         let sliceIndex = remaining.lastIndexOf('\n', size);
         if (sliceIndex <= 0 || sliceIndex > size) sliceIndex = size;
         const chunk = remaining.slice(0, sliceIndex).trim();
-        messages.push({ type: 'text', text: chunk });
+        chunks.push(chunk);
         remaining = remaining.slice(sliceIndex).trim();
     }
-    if (remaining.length > 0 && messages.length < maxMessages) {
-        messages.push({ type: 'text', text: remaining.slice(0, size).trim() });
+    if (remaining.length > 0 && chunks.length < maxMessages) {
+        chunks.push(remaining.slice(0, size).trim());
+        remaining = remaining.slice(size).trim();
+    }
+
+    const total = chunks.length + (remaining.length > 0 ? 1 : 0);
+    const messages = chunks.map((c, i) => {
+        const label = classifyLength(c.length);
+        return { type: 'text', text: `訊息 ${i + 1}/${total} (${label})\n${c}` };
+    });
+
+    if (remaining.length > 0) {
+        if (messages.length < maxMessages) {
+            const label = classifyLength(remaining.length);
+            messages.push({
+                type: 'text',
+                text: `訊息 ${messages.length + 1}/${total} (${label})\n${remaining}`,
+            });
+        } else {
+            messages.push({
+                type: 'text',
+                text: '內容過長，如需剩餘內容請輸入「下一段」。',
+            });
+        }
     }
     return messages;
 }
