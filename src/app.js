@@ -186,8 +186,8 @@ async function handleEvent(event) {
         if (openaiEnabled) {
             const type = (await classifyMessage(messageBody)).toUpperCase();
             if (type !== 'GOAL') {
-                const { system, user } = buildGoalRetryPrompt(messageBody);
-                replyText = await sendChatPrompt(system, user);
+                console.log(`Goal classification mismatch: ${type} for "${messageBody}"`);
+                // Continue with provided text instead of re-asking
                 return replyChunked(replyToken, replyText);
             }
         }
@@ -218,16 +218,15 @@ async function handleEvent(event) {
             }
             return replyChunked(replyToken, replyText);
         }
-        const noObligationRegex = /^(?:沒有|沒有了|沒了|無|沒有其他|none)$/i;
+        const noObligationRegex = /^(?:沒有|沒有了|沒了|無|沒有其他|沒有啊|沒什麼|none)$/i;
         if (noObligationRegex.test(messageBody)) {
             state.obligations = '無';
         } else {
             if (openaiEnabled) {
                 const type = (await classifyMessage(messageBody)).toUpperCase();
                 if (type !== 'OBLIGATION') {
-                    const { system, user } = buildObligationQuestionPrompt();
-                    replyText = await sendChatPrompt(system, user);
-                    return replyChunked(replyToken, replyText);
+                    console.log(`Obligation classification mismatch: ${type} for "${messageBody}"`);
+                    // Continue with provided text instead of re-asking
                 }
             }
             state.obligations = messageBody;
