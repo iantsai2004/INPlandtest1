@@ -116,6 +116,15 @@ function replyChunked(token, text) {
     const messages = chunkText(text);
     return client.replyMessage(token, messages);
 }
+function replyGoalMap(token, sections) {
+    const messages = [];
+    for (const sec of sections) {
+        if (messages.length >= 5) break;
+        const remaining = 5 - messages.length;
+        messages.push(...chunkText(sec, 4000, remaining));
+    }
+    return client.replyMessage(token, messages);
+}
 
 // LINE Webhook 驗證中間件
 // 注意：這裡使用 line.middleware(config) 來處理簽名驗證和 JSON 解析
@@ -296,30 +305,54 @@ async function handleEvent(event) {
             }
         }
         state.time = messageBody;
-        state.phase = 'ready';
+        state.phase = 'awaiting_confirmation';
         setState(userId, state);
-        let confirm = `預計投入時間為「${state.time}」，若需要調整請告訴我。`;
-        let breakdown = '';
-        let micro = '';
-        let mood = '';
+        const summary = `目標：${state.goal}\n待辦：${state.obligations}\n投入時間：${state.time}`;
         if (openaiEnabled) {
-            const confirmPrompt = buildConfirmationPrompt(state.time);
-            const ack = await sendChatPrompt(confirmPrompt.system, confirmPrompt.user);
-            confirm = ack;
-            const { system, user } = buildGoalBreakdownPrompt(state.goal, state.time, state.obligations);
-            breakdown = await sendChatPrompt(system, user);
-            const m = buildMicroTaskPrompt(state.goal);
-            micro = await sendChatPrompt(m.system, m.user);
-            const emo = buildMoodCheckPrompt();
-            mood = await sendChatPrompt(emo.system, emo.user);
+            const confirmPrompt = buildConfirmationPrompt(summary);
+            replyText = await sendChatPrompt(confirmPrompt.system, confirmPrompt.user);
+            replyText += '\n如果以上內容正確，回覆「是」我會為你生成 Goal Map。';
         } else {
-            breakdown = `目標：${state.goal}\n每週時間：${state.time}`;
-            micro = '告訴我任務內容，我可以幫你拆解成微任務。';
-            mood = '目前心情如何？有沒有什麼壓力或迷惘？';
+            replyText = `${summary}\n如果沒問題，回覆「是」開始建立 Goal Map。`;
         }
-        replyText = `${confirm}\n${breakdown}\n\n${micro}\n\n${mood}\n\n課程平台：${COURSE_URL}\n完成後可輸入「成果輸出 標題|內容|挑戰|下一步」記錄成果。`;
         return replyChunked(replyToken, replyText);
     }
+
+    if (state.phase === 'awaiting_confirmation') {
+        const yesRegex = /^(?:是|ok|好的|確認|可以|好啊|好|yes)$/i;
+        if (yesRegex.test(messageBody)) {
+            state.phase = 'ready';
+            setState(userId, state);
+            let confirm = `預計投入時間為「${state.time}」，若需要調整請告訴我。`;
+            let breakdown = '';
+            let micro = '';
+            let mood = '';
+            if (openaiEnabled) {
+                const confirmPrompt = buildConfirmationPrompt(state.time);
+                confirm = await sendChatPrompt(confirmPrompt.system, confirmPrompt.user);
+                const { system, user } = buildGoalBreakdownPrompt(state.goal, state.time, state.obligations);
+                breakdown = await sendChatPrompt(system, user);
+                const m = buildMicroTaskPrompt(state.goal);
+                micro = await sendChatPrompt(m.system, m.user);
+                const emo = buildMoodCheckPrompt();
+                mood = await sendChatPrompt(emo.system, emo.user);
+            } else {
+                breakdown = `目標：${state.goal}\n每週時間：${state.time}`;
+                micro = '告訴我任務內容，我可以幫你拆解成微任務。';
+                mood = '目前心情如何？有沒有什麼壓力或迷惘？';
+            }
+            const sections = [
+                confirm,
+                breakdown,
+                `${micro}\n\n${mood}\n\n課程平台：${COURSE_URL}\n完成後可輸入「成果輸出 標題|內容|挑戰|下一步」記錄成果。`
+            ];
+            return replyGoalMap(replyToken, sections);
+        } else {
+            replyText = '收到，如需修改請重新輸入目標，或回覆「是」以生成 Goal Map。';
+            return replyChunked(replyToken, replyText);
+        }
+    }
+
 
     try {
         // 直接交由 OpenAI 模型生成回覆，不再依賴關鍵字判斷
