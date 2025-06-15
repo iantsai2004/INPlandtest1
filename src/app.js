@@ -14,6 +14,7 @@ const {
     buildEmotionAdjustPrompt,
     buildOutputSummaryPrompt,
     buildGoalQuestionPrompt,
+    buildGoalRetryPrompt,
     buildObligationQuestionPrompt,
     buildTimeQuestionPrompt,
     buildMoodCheckPrompt,
@@ -185,7 +186,7 @@ async function handleEvent(event) {
         if (openaiEnabled) {
             const type = (await classifyMessage(messageBody)).toUpperCase();
             if (type !== 'GOAL') {
-                const { system, user } = buildGoalQuestionPrompt();
+                const { system, user } = buildGoalRetryPrompt(messageBody);
                 replyText = await sendChatPrompt(system, user);
                 return replyChunked(replyToken, replyText);
             }

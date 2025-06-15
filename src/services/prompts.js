@@ -23,6 +23,13 @@ function buildOutputSummaryPrompt(title, summary, challenge, next) {
     return { system, user };
 }
 
+function buildGoalRetryPrompt(previous) {
+    const system = `你是一位溫和的諮商式助理，需要再次確認使用者的目標。回應時先簡短回覆對方剛才的內容，再換個問法請他描述想完成的目標與動機。`;
+    const user = `使用者剛才說：「${previous}」。請以新的說法詢問他想達成的目標。`;
+    return { system, user };
+}
+
+
 function buildGoalQuestionPrompt() {
     const system = `你是一位溫和的諮商式助理，想了解使用者目前最想達成的目標以及這個目標背後的原因或期待，請用自然的問句引導對方分享。`;
     const user = '請根據使用者回覆，用一句簡短自然的問題了解對方的目標與動機，並詢問是否需要協助';
@@ -66,6 +73,7 @@ module.exports = {
     buildOutputSummaryPrompt,
     buildGoalQuestionPrompt,
     buildObligationQuestionPrompt,
+    buildGoalRetryPrompt,
     buildTimeQuestionPrompt,
     buildMoodCheckPrompt,
     buildGeneralChatPrompt,
