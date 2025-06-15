@@ -2,7 +2,7 @@
 
 const { OpenAI } = require('openai');
 
-const MODEL = 'o4-mini';
+const MODEL = 'o3';
 
 let openaiInstance;
 
