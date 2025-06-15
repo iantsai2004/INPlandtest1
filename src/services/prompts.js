@@ -25,7 +25,7 @@ function buildOutputSummaryPrompt(title, summary, challenge, next) {
 
 function buildGoalQuestionPrompt() {
     const system = `你是一位溫和的諮商式助理，想了解使用者目前最想達成的目標以及這個目標背後的原因或期待，請用自然的問句引導對方分享。`;
-    const user = '請根據使用者回覆，用一句簡短的問題了解對方的目標與動機並確認是否根據問題回答問題';
+    const user = '請根據使用者回覆，用一句簡短自然的問題了解對方的目標與動機，並詢問是否需要協助';
     return { system, user };
 }
 
