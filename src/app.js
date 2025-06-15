@@ -67,18 +67,20 @@ const app = express();
 const client = new line.Client(config); // 使用 line.Client 來創建 LINE Bot 客戶端
 
 // 將過長的訊息切割成多則，以避免單次傳送過多內容
-function chunkText(text, size = 100) {
+// LINE 的 replyMessage API 最多一次只能回覆 5 則訊息，每則訊息上限 5000 字
+// 將 chunk 大小調整為 4000 字，並確保最多只回覆 5 則訊息以免回覆失敗
+function chunkText(text, size = 4000, maxMessages = 5) {
     const messages = [];
     let remaining = String(text);
-    while (remaining.length > size) {
+    while (remaining.length > size && messages.length < maxMessages - 1) {
         let sliceIndex = remaining.lastIndexOf('\n', size);
-        if (sliceIndex <= 0) sliceIndex = size;
+        if (sliceIndex <= 0 || sliceIndex > size) sliceIndex = size;
         const chunk = remaining.slice(0, sliceIndex).trim();
         messages.push({ type: 'text', text: chunk });
         remaining = remaining.slice(sliceIndex).trim();
     }
-    if (remaining.length > 0) {
-        messages.push({ type: 'text', text: remaining });
+    if (remaining.length > 0 && messages.length < maxMessages) {
+        messages.push({ type: 'text', text: remaining.slice(0, size).trim() });
     }
     return messages;
 }
