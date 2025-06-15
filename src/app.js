@@ -65,6 +65,28 @@ const app = express();
 
 const client = new line.Client(config); // 使用 line.Client 來創建 LINE Bot 客戶端
 
+// 將過長的訊息切割成多則，以避免單次傳送過多內容
+function chunkText(text, size = 100) {
+    const messages = [];
+    let remaining = String(text);
+    while (remaining.length > size) {
+        let sliceIndex = remaining.lastIndexOf('\n', size);
+        if (sliceIndex <= 0) sliceIndex = size;
+        const chunk = remaining.slice(0, sliceIndex).trim();
+        messages.push({ type: 'text', text: chunk });
+        remaining = remaining.slice(sliceIndex).trim();
+    }
+    if (remaining.length > 0) {
+        messages.push({ type: 'text', text: remaining });
+    }
+    return messages;
+}
+
+function replyChunked(token, text) {
+    const messages = chunkText(text);
+    return client.replyMessage(token, messages);
+}
+
 // LINE Webhook 驗證中間件
 // 注意：這裡使用 line.middleware(config) 來處理簽名驗證和 JSON 解析
 app.post('/webhook', line.middleware(config), async (req, res) => {
@@ -127,7 +149,7 @@ async function handleEvent(event) {
         } else {
             intro = '嗨！每次以 INPland 開頭我就會重新為你建立新的 Goal Map。\n請先告訴我你想達成的學習或專案目標，不用一次說完，慢慢來。';
         }
-        return client.replyMessage(replyToken, { type: 'text', text: intro });
+        return replyChunked(replyToken, intro);
     }
 
     const messageBody = trimmed;
@@ -144,7 +166,7 @@ async function handleEvent(event) {
             intro = '嗨！請分享你想達成的學習或專案目標吧。';
         }
         console.log('New session automatically started.');
-        return client.replyMessage(replyToken, { type: 'text', text: intro });
+        return replyChunked(replyToken, intro);
     }
 
     let replyText = '很抱歉，您的請求處理時發生了預期外錯誤。\n 用INPland開頭讓我們幫你打造你的Goal Map！';
@@ -158,14 +180,14 @@ async function handleEvent(event) {
             } else {
                 replyText = '請再次描述您的主要目標。';
             }
-            return client.replyMessage(replyToken, { type: 'text', text: replyText });
+            return replyChunked(replyToken, replyText);
         }
         if (openaiEnabled) {
             const type = (await classifyMessage(messageBody)).toUpperCase();
             if (type !== 'GOAL') {
                 const { system, user } = buildGoalQuestionPrompt();
                 replyText = await sendChatPrompt(system, user);
-                return client.replyMessage(replyToken, { type: 'text', text: replyText });
+                return replyChunked(replyToken, replyText);
             }
         }
         state.goal = messageBody;
@@ -182,10 +204,9 @@ async function handleEvent(event) {
         } else {
             replyText = `${confirm}\n除此之外，你還有哪些工作或生活上的事情需要同時處理？`;
         }
-        return client.replyMessage(replyToken, { type: 'text', text: replyText });
+        return replyChunked(replyToken, replyText);
     }
-    //if (state.phase === 'awaiting_goal') {
-    //  state.goal = userMessage;
+
     if (state.phase === 'awaiting_obligations') {
         if (!messageBody) {
             if (openaiEnabled) {
@@ -194,7 +215,7 @@ async function handleEvent(event) {
             } else {
                 replyText = '請再告訴我需要兼顧哪些工作或生活任務。';
             }
-            return client.replyMessage(replyToken, { type: 'text', text: replyText });
+            return replyChunked(replyToken, replyText);
         }
         const noObligationRegex = /^(?:沒有|沒有了|沒了|無|沒有其他|none)$/i;
         if (noObligationRegex.test(messageBody)) {
@@ -205,7 +226,7 @@ async function handleEvent(event) {
                 if (type !== 'OBLIGATION') {
                     const { system, user } = buildObligationQuestionPrompt();
                     replyText = await sendChatPrompt(system, user);
-                    return client.replyMessage(replyToken, { type: 'text', text: replyText });
+                    return replyChunked(replyToken, replyText);
                 }
             }
             state.obligations = messageBody;
@@ -224,7 +245,7 @@ async function handleEvent(event) {
         } else {
             replyText = `${confirm}\n大約每週能投入多少時間在這個目標上呢？`;
         }
-        return client.replyMessage(replyToken, { type: 'text', text: replyText });
+        return replyChunked(replyToken, replyText);
     }
 
     if (state.phase === 'awaiting_time') {
@@ -235,14 +256,14 @@ async function handleEvent(event) {
             } else {
                 replyText = '請告訴我大約能投入的時間。';
             }
-            return client.replyMessage(replyToken, { type: 'text', text: replyText });
+            return replyChunked(replyToken, replyText);
         }
         if (openaiEnabled) {
             const type = (await classifyMessage(messageBody)).toUpperCase();
             if (type !== 'TIME') {
                 const { system, user } = buildTimeQuestionPrompt();
                 replyText = await sendChatPrompt(system, user);
-                return client.replyMessage(replyToken, { type: 'text', text: replyText });
+                return replyChunked(replyToken, replyText);
             }
         }
         state.time = messageBody;
@@ -268,7 +289,7 @@ async function handleEvent(event) {
             mood = '目前心情如何？有沒有什麼壓力或迷惘？';
         }
         replyText = `${confirm}\n${breakdown}\n\n${micro}\n\n${mood}\n\n課程平台：${COURSE_URL}\n完成後可輸入「成果輸出 標題|內容|挑戰|下一步」記錄成果。`;
-        return client.replyMessage(replyToken, { type: 'text', text: replyText });
+        return replyChunked(replyToken, replyText);
     }
 
     try {
@@ -300,10 +321,7 @@ async function handleEvent(event) {
     console.log('Attempting to reply with text:', replyText);
     // 回覆訊息給用戶
     // 確保回覆內容是字串類型
-    return client.replyMessage(replyToken, {
-        type: 'text',
-        text: String(replyText) // 確保 replyText 是字串
-    });
+    return replyChunked(replyToken, String(replyText));
 }
 
 // --- 測試路由 ---
